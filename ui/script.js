@@ -2,12 +2,12 @@ let timers = {};
 
 window.addEventListener('message', function(event) {
     const data = event.data;
-    console.log('Received message:', data); // Log all incoming messages
+    console.log('Received message:', data);
     if (data.action === 'setPosition') {
         setTimerPosition(data.position);
     } else if (data.action === 'startTimer') {
         console.log('Setting timer position to:', data.position);
-        setTimerPosition(data.position); // Set position before starting timer
+        setTimerPosition(data.position);
         startTimer(data.index, data.duration);
     } else if (data.action === 'stopTimer') {
         stopTimer(data.index);
@@ -21,7 +21,6 @@ function setTimerPosition(position) {
         return;
     }
     console.log('Applying position:', position);
-    // Reset all positioning styles to avoid conflicts
     container.style.top = '';
     container.style.bottom = '';
     container.style.left = '';
@@ -70,14 +69,13 @@ function setTimerPosition(position) {
             container.style.bottom = '10px';
             container.style.right = '10px';
     }
-    // Log applied styles for verification
     console.log('Applied styles:', container.style.cssText);
 }
 
 function startTimer(index, duration) {
     timers[index] = {
         startTime: Date.now(),
-        duration: duration * 1000 // Convert to milliseconds
+        duration: duration * 1000
     };
     updateTimer(index);
     document.getElementById('timer-container').classList.remove('hidden');
@@ -99,11 +97,11 @@ function updateTimer(index) {
         const remaining = Math.max(0, timer.duration - elapsed);
         if (remaining > 0) {
             const seconds = Math.ceil(remaining / 1000);
-            document.getElementById('timer-text').textContent = `Combat Timer: ${seconds}s`;
+            document.getElementById('timer-text').innerHTML = `Combat Timer: <span id="time">${seconds}</span>s`;
             requestAnimationFrame(() => updateTimer(index));
         } else {
-            document.getElementById('timer-text').textContent = 'Combat Timer Expired';
-            // Do not stop the timer here; wait for Lua to send stopTimer when player leaves
+            document.getElementById('timer-text').innerHTML = "Combat Timer Expired";
+            setTimeout(() => stopTimer(index), 5000); // Hide after 5 seconds
         }
     }
 }
