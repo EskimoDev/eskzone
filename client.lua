@@ -41,26 +41,26 @@ Citizen.CreateThread(function()
                     -- Timer expired
                     timers[i] = nil
                     lastPositions[i] = nil -- Clear last position
-                elseif distance > sphere.scale then
-                    -- Timer active and player outside, teleport back
+                elseif not currentInside then -- Player is outside with active timer
+                    -- Teleport back
                     local lastPos = lastPositions[i] or sphere.coords -- Fallback to center if no last position
-                    -- Calculate direction from last position to center
                     local vectorToCenter = sphere.coords - lastPos
                     local distToCenter = #vectorToCenter
                     local dir = distToCenter > 0 and vectorToCenter / distToCenter or vector3(0, 0, 0)
-                    -- Move 2 units further in from the last position towards the center
                     local offset = 2.0 -- Adjust 2 units inward
                     local newPos = lastPos + dir * offset
-                    -- Ensure the new position is within the sphere
                     if #(newPos - sphere.coords) > sphere.scale then
                         newPos = sphere.coords + dir * (sphere.scale * 0.8) -- Fallback to 80% radius
                     end
                     SetEntityCoords(playerPed, newPos.x, newPos.y, newPos.z, false, false, false, true)
                     playerCoords = GetEntityCoords(playerPed) -- Update coords after teleport
+                    -- Recalculate distance and currentInside after teleportation
+                    distance = #(playerCoords - sphere.coords)
+                    currentInside = distance <= sphere.scale
                 end
             end
 
-            -- Handle entering and leaving
+            -- Handle entering and leaving using the final currentInside
             if isInside[i] == nil then
                 isInside[i] = currentInside
             else
