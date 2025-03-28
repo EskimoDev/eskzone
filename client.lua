@@ -1,8 +1,7 @@
 local timers = {} -- Table to track timers for each sphere
-local timerExpired = {} -- Table to track if the timer has expired for each sphere
-local isInside = {} -- Table to track player's state for each sphere
 
 Citizen.CreateThread(function()
+    local isInside = {} -- Table to track player's state for each sphere
     while true do
         Citizen.Wait(0) -- Run every frame
         local playerPed = GetPlayerPed(-1)
@@ -29,62 +28,46 @@ Citizen.CreateThread(function()
             local distance = #(playerCoords - sphere.coords)
             local currentInside = distance <= sphere.scale
 
-            -- Handle timer logic
-            if timers[i] then
-                if GetGameTimer() - timers[i].startTime < timers[i].duration then
-                    -- Timer is active
-                    if not currentInside then
-                        -- Teleport player back inside the sphere
-                        local direction = (playerCoords - sphere.coords) / distance
-                        local newPos = sphere.coords + direction * (sphere.scale - 0.1) -- Slightly inside boundary
-                        SetEntityCoords(playerPed, newPos.x, newPos.y, newPos.z, false, false, false, true)
-                        currentInside = true -- Update after teleport
+            -- Initialize state for the sphere if not set
+            if isInside[i] == nil then
+                isInside[i] = currentInside
+            else
+                -- Check for state change and handle timer
+                if currentInside and not isInside[i] then
+                    print("Entered sphere " .. i)
+                    -- Start the timer for this sphere
+                    if not timers[i] then
+                        timers[i] = {
+                            startTime = GetGameTimer(),
+                            duration = sphere.timerDuration * 1000 -- Convert to milliseconds
+                        }
+                        -- Send message to NUI with position included
+                        SendNUIMessage({
+                            action = "startTimer",
+                            index = i,
+                            duration = sphere.timerDuration,
+                            position = Config.TimerPosition
+                        })
                     end
-                else
-                    -- Timer has expired
-                    if not timerExpired[i] then
-                        timerExpired[i] = true
-                    end
-                end
-            end
-
-            -- Handle entering and leaving the sphere
-            if currentInside and not isInside[i] then
-                -- Entering the sphere
-                print("Entered sphere " .. i)
-                if not timers[i] then
-                    timers[i] = {
-                        startTime = GetGameTimer(),
-                        duration = sphere.timerDuration * 1000 -- Convert to milliseconds
-                    }
-                    timerExpired[i] = false
-                    SendNUIMessage({
-                        action = "startTimer",
-                        index = i,
-                        duration = sphere.timerDuration,
-                        position = Config.TimerPosition
-                    })
-                end
-            elseif not currentInside and isInside[i] then
-                -- Leaving the sphere
-                if timerExpired[i] then
+                elseif not currentInside and isInside[i] then
                     print("Left sphere " .. i)
-                    timers[i] = nil
-                    timerExpired[i] = false
-                    SendNUIMessage({action = "stopTimer", index = i})
+                    -- Stop the timer for this sphere
+                    if timers[i] then
+                        timers[i] = nil
+                        SendNUIMessage({action = "stopTimer", index = i})
+                    end
                 end
+                -- Update the state
+                isInside[i] = currentInside
             end
-
-            -- Update the state
-            isInside[i] = currentInside
         end
 
-        -- Check for shooting or punching and reset timers if inside a sphere and timer is active
+        -- Check for shooting or punching and reset timers if inside a sphere
         local isShooting = IsPedShooting(playerPed)
         local isPunching = IsPedInMeleeCombat(playerPed) and GetSelectedPedWeapon(playerPed) == GetHashKey("WEAPON_UNARMED")
         if isShooting or isPunching then
             for i, sphere in ipairs(Config.Spheres) do
-                if isInside[i] and timers[i] and (GetGameTimer() - timers[i].startTime < timers[i].duration) then
+                if isInside[i] and timers[i] then
                     timers[i].startTime = GetGameTimer()
                     SendNUIMessage({
                         action = "startTimer",
