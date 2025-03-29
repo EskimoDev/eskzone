@@ -3,6 +3,14 @@ local lastPositions = {} -- Table to store last position inside each sphere
 
 Citizen.CreateThread(function()
     local isInside = {} -- Table to track player's state for each sphere
+
+    -- Create blips for each sphere
+    for i, sphere in ipairs(Config.Spheres) do
+        local blip = AddBlipForRadius(sphere.coords.x, sphere.coords.y, sphere.coords.z, sphere.scale)
+        SetBlipColour(blip, 1) -- Red color
+        SetBlipAlpha(blip, sphere.alpha or 255) -- Transparency from config, default to 255 if not specified
+    end
+
     while true do
         Citizen.Wait(0) -- Run every frame
         local playerPed = GetPlayerPed(-1)
