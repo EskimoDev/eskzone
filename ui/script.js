@@ -1,26 +1,37 @@
+let debug = false;
 let timers = {};
 
 window.addEventListener('message', function(event) {
     const data = event.data;
-    console.log('Received message:', data);
-    if (data.action === 'setPosition') {
+    if (data.action === 'setDebug') {
+        debug = data.debug;
+    } else if (data.action === 'setPosition') {
         setTimerPosition(data.position);
     } else if (data.action === 'startTimer') {
-        console.log('Setting timer position to:', data.position);
+        if (debug) {
+            console.log('Setting timer position to:', data.position);
+        }
         setTimerPosition(data.position);
         startTimer(data.index, data.duration);
     } else if (data.action === 'stopTimer') {
         stopTimer(data.index);
+    }
+    if (debug) {
+        console.log('Received message:', data);
     }
 });
 
 function setTimerPosition(position) {
     const container = document.getElementById('timer-container');
     if (!container) {
-        console.error('Timer container not found!');
+        if (debug) {
+            console.error('Timer container not found!');
+        }
         return;
     }
-    console.log('Applying position:', position);
+    if (debug) {
+        console.log('Applying position:', position);
+    }
     container.style.top = '';
     container.style.bottom = '';
     container.style.left = '';
@@ -65,11 +76,15 @@ function setTimerPosition(position) {
             container.style.transform = 'translateY(-50%)';
             break;
         default:
-            console.warn('Unknown position:', position, 'defaulting to bottom-right');
+            if (debug) {
+                console.warn('Unknown position:', position, 'defaulting to bottom-right');
+            }
             container.style.bottom = '10px';
             container.style.right = '10px';
     }
-    console.log('Applied styles:', container.style.cssText);
+    if (debug) {
+        console.log('Applied styles:', container.style.cssText);
+    }
 }
 
 function startTimer(index, duration) {
@@ -101,7 +116,7 @@ function updateTimer(index) {
             requestAnimationFrame(() => updateTimer(index));
         } else {
             document.getElementById('timer-text').innerHTML = "Combat Timer Expired";
-            setTimeout(() => stopTimer(index), 5000); // Hide after 5 seconds
+            setTimeout(() => stopTimer(index), 5000);
         }
     }
 }

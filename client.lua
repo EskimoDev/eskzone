@@ -1,79 +1,87 @@
-local timers = {} -- Table to track timers for each sphere
-local lastPositions = {} -- Table to store last position inside each sphere
+local timers = {}
+local lastPositions = {}
 
 Citizen.CreateThread(function()
-    local isInside = {} -- Table to track player's state for each sphere
+    local isInside = {}
 
-    -- Create blips for each sphere
     for i, sphere in ipairs(Config.Spheres) do
         local blip = AddBlipForRadius(sphere.coords.x, sphere.coords.y, sphere.coords.z, sphere.scale)
-        SetBlipColour(blip, 1) -- Red color
-        SetBlipAlpha(blip, sphere.alpha or 255) -- Transparency from config, default to 255 if not specified
+        SetBlipColour(blip, 1)
+        SetBlipAlpha(blip, sphere.alpha or 255)
     end
 
+    if Config.Debug then
+        print("Loaded " .. #Config.Spheres .. " spheres")
+    end
+
+    SendNUIMessage({
+        action = "setDebug",
+        debug = Config.Debug
+    })
+
     while true do
-        Citizen.Wait(0) -- Run every frame
+        Citizen.Wait(0)
         local playerPed = GetPlayerPed(-1)
         local playerCoords = GetEntityCoords(playerPed)
 
-        -- Handle timer expiration and teleportation
         for i, sphere in ipairs(Config.Spheres) do
             local distance = #(playerCoords - sphere.coords)
             local currentInside = distance <= sphere.scale
 
-            -- Draw the sphere
             DrawMarker(
-                28,                          -- Marker type (sphere)
-                sphere.coords.x, sphere.coords.y, sphere.coords.z, -- Position
-                0.0, 0.0, 0.0,              -- Direction (not used)
-                0.0, 0.0, 0.0,              -- Rotation (not used)
-                sphere.scale, sphere.scale, sphere.scale, -- Radius
-                255, 0, 0, sphere.alpha or 255, -- Red color with alpha
-                0,                          -- bobUpAndDown: 0 (false)
-                0,                          -- faceCamera: 0 (false)
-                0,                          -- p19: unused
-                0,                          -- rotate: 0 (false)
-                nil, nil,                   -- textureDict, textureName: nil
-                0                           -- drawOnEnts: 0 (false)
+                28,
+                sphere.coords.x, sphere.coords.y, sphere.coords.z,
+                0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0,
+                sphere.scale, sphere.scale, sphere.scale,
+                255, 0, 0, sphere.alpha or 255,
+                0,
+                0,
+                0,
+                0,
+                nil, nil,
+                0
             )
 
-            -- Update last position if inside
             if currentInside then
                 lastPositions[i] = playerCoords
             end
 
-            -- Check timer status
             if timers[i] then
                 local elapsed = GetGameTimer() - timers[i].startTime
                 if elapsed >= timers[i].duration then
-                    -- Timer expired
+                    if Config.Debug then
+                        print("Timer expired for sphere " .. i)
+                    end
                     timers[i] = nil
-                    lastPositions[i] = nil -- Clear last position
-                elseif not currentInside then -- Player is outside with active timer
-                    -- Teleport back
-                    local lastPos = lastPositions[i] or sphere.coords -- Fallback to center if no last position
+                    lastPositions[i] = nil
+                elseif not currentInside then
+                    if Config.Debug then
+                        print("Teleporting player back to sphere " .. i)
+                    end
+                    local lastPos = lastPositions[i] or sphere.coords
                     local vectorToCenter = sphere.coords - lastPos
                     local distToCenter = #vectorToCenter
                     local dir = distToCenter > 0 and vectorToCenter / distToCenter or vector3(0, 0, 0)
-                    local offset = 2.0 -- Adjust 2 units inward
+                    local offset = 2.0
                     local newPos = lastPos + dir * offset
                     if #(newPos - sphere.coords) > sphere.scale then
-                        newPos = sphere.coords + dir * (sphere.scale * 0.8) -- Fallback to 80% radius
+                        newPos = sphere.coords + dir * (sphere.scale * 0.8)
                     end
                     SetEntityCoords(playerPed, newPos.x, newPos.y, newPos.z, false, false, false, true)
-                    playerCoords = GetEntityCoords(playerPed) -- Update coords after teleport
-                    -- Recalculate distance and currentInside after teleportation
+                    playerCoords = GetEntityCoords(playerPed)
                     distance = #(playerCoords - sphere.coords)
                     currentInside = distance <= sphere.scale
                 end
             end
 
-            -- Handle entering and leaving using the final currentInside
             if isInside[i] == nil then
                 isInside[i] = currentInside
             else
                 if currentInside and not isInside[i] then
-                    print("Entered sphere " .. i)
+                    if Config.Debug then
+                        print("Entered sphere " .. i)
+                    end
                     timers[i] = {
                         startTime = GetGameTimer(),
                         duration = sphere.timerDuration * 1000
@@ -85,19 +93,22 @@ Citizen.CreateThread(function()
                         position = Config.TimerPosition
                     })
                 elseif not currentInside and isInside[i] then
-                    print("Left sphere " .. i)
-                    -- Timer continues, no stop here
+                    if Config.Debug then
+                        print("Left sphere " .. i)
+                    end
                 end
                 isInside[i] = currentInside
             end
         end
 
-        -- Reset timer on shooting or punching
         local isShooting = IsPedShooting(playerPed)
         local isPunching = IsPedInMeleeCombat(playerPed) and GetSelectedPedWeapon(playerPed) == GetHashKey("WEAPON_UNARMED")
         if isShooting or isPunching then
             for i, sphere in ipairs(Config.Spheres) do
                 if timers[i] and (GetGameTimer() - timers[i].startTime < timers[i].duration) then
+                    if Config.Debug then
+                        print("Resetting timer for sphere " .. i .. " due to " .. (isShooting and "shooting" or "punching"))
+                    end
                     timers[i].startTime = GetGameTimer()
                     SendNUIMessage({
                         action = "startTimer",
