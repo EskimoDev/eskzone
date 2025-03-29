@@ -1,5 +1,6 @@
 let debug = false;
 let timers = {};
+let timeoutIds = {}; // New object to track timeout IDs
 
 window.addEventListener('message', function(event) {
     const data = event.data;
@@ -88,6 +89,11 @@ function setTimerPosition(position) {
 }
 
 function startTimer(index, duration) {
+    // Cancel any pending timeout for this sphere
+    if (timeoutIds[index]) {
+        clearTimeout(timeoutIds[index]);
+        delete timeoutIds[index];
+    }
     timers[index] = {
         startTime: Date.now(),
         duration: duration * 1000
@@ -116,7 +122,7 @@ function updateTimer(index) {
             requestAnimationFrame(() => updateTimer(index));
         } else {
             document.getElementById('timer-text').innerHTML = "Combat Timer Expired";
-            setTimeout(() => stopTimer(index), 5000);
+            timeoutIds[index] = setTimeout(() => stopTimer(index), 5000); // Store timeout ID
         }
     }
 }
